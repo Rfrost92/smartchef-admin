@@ -67,5 +67,49 @@ app.post('/users/:id/toggle-test-user', async (req, res) => {
     }
 });
 
+app.post('/users/:id/verify-email', async (req, res) => {
+    const { id } = req.params;
+    console.log(`📥 POST /users/${id}/verify-email`);
+
+    try {
+        await admin.auth().updateUser(id, { emailVerified: true });
+        console.log(`✅ Email verified for user ${id}`);
+        res.sendStatus(200);
+    } catch (error) {
+        console.error(`❌ Failed to verify email for ${id}:`, error);
+        res.status(500).json({ error: 'Failed to verify email' });
+    }
+});
+
+app.get('/auth-users', async (req, res) => {
+    console.log('📥 GET /auth-users - Fetching Firebase Auth users...');
+    try {
+        const listAllUsers = async (nextPageToken?: string, allUsers: admin.auth.UserRecord[] = []): Promise<admin.auth.UserRecord[]> => {
+            const result = await admin.auth().listUsers(1000, nextPageToken);
+            const users = allUsers.concat(result.users);
+            if (result.pageToken) {
+                return listAllUsers(result.pageToken, users);
+            }
+            return users;
+        };
+
+        const users = await listAllUsers();
+
+        const mapped = users.map(u => ({
+            uid: u.uid,
+            email: u.email,
+            emailVerified: u.emailVerified,
+            provider: u.providerData?.[0]?.providerId || "unknown",
+            createdAt: u.metadata.creationTime,
+            lastSignIn: u.metadata.lastSignInTime,
+        }));
+
+        console.log(`✅ Found ${mapped.length} auth users`);
+        res.json(mapped);
+    } catch (error) {
+        console.error('❌ Failed to fetch auth users:', error);
+        res.status(500).json({ error: 'Failed to fetch auth users' });
+    }
+});
 
 app.listen(3008, () => console.log('✅ Backend running at http://localhost:3008'));

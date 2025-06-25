@@ -13,27 +13,52 @@ type User = {
     signedUpWith?: string;
     testUser?: boolean;
     lastRequestDate?: string;
-    lastUpdated?: string;
-    createdAt?: string;
-    requestsToday?: number;
+    // Auth metadata
+    emailVerified?: boolean;
+    provider?: string;
+    authCreatedAt?: Date | string;
+    lastSignIn?: Date | string;
 };
 
 export default function App() {
     const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
+    const [manualUserId, setManualUserId] = useState("");
+    const [verifyStatus, setVerifyStatus] = useState<string | null>(null);
 
     const fetchUsers = async () => {
+        setLoading(true);
         try {
-            const res = await fetch("http://localhost:3008/users");
-            const data = await res.json();
-            setUsers(data);
+            const [resDb, resAuth] = await Promise.all([
+                fetch("http://localhost:3008/users"),
+                fetch("http://localhost:3008/auth-users")
+            ]);
+
+            const dbUsers = await resDb.json();
+            const authUsers = await resAuth.json();
+
+            // Match by email
+            const merged = dbUsers.map((u: User) => {
+                const auth = authUsers.find((a: any) => a.email === u.email);
+                return {
+                    ...u,
+                    emailVerified: auth?.emailVerified,
+                    provider: auth?.provider,
+                    authCreatedAt: auth?.createdAt ? new Date(auth.createdAt) : undefined,
+                    lastSignIn: auth?.lastSignIn ? new Date(auth.lastSignIn) : undefined,
+
+                };
+            });
+
+            setUsers(merged);
         } catch (err) {
             console.error("Failed to fetch users", err);
         } finally {
             setLoading(false);
         }
     };
+
 
     const updateSubscription = async (id: string, type: string) => {
         await fetch(`http://localhost:3008/users/${id}/subscription`, {
@@ -57,6 +82,23 @@ export default function App() {
             body: JSON.stringify({ testUser: value }),
         });
         fetchUsers();
+    };
+
+    const verifyEmail = async (id: string) => {
+        try {
+            const res = await fetch(`http://localhost:3008/users/${id}/verify-email`, {
+                method: "POST",
+            });
+
+            if (res.ok) {
+                console.log(`✅ Email verified for user ${id}`);
+            } else {
+                console.error(`❌ Failed to verify email for user ${id}`);
+            }
+            fetchUsers();
+        } catch (err) {
+            console.error("Error verifying email:", err);
+        }
     };
 
     useEffect(() => {
@@ -99,25 +141,40 @@ export default function App() {
                         columns={[
                             { field: 'email', headerName: 'Email', width: 260 },
                             { field: 'id', headerName: 'User ID', width: 200 },
-                            { field: 'displayName', headerName: 'Name', flex: 1 },
+                        //    { field: 'displayName', headerName: 'Name' },
                             { field: 'subscriptionType', headerName: 'Subscription', width: 160 },
-                            { field: 'requestsThisWeek', headerName: 'This Week', type: 'number', width: 130 },
+                            { field: 'requestsThisWeek', headerName: 'This Week', type: 'number', width: 130, flex: 1 },
                             { field: 'totalRequests', headerName: 'Total Requests', type: 'number', width: 150 },
-                            { field: 'requestsToday', headerName: 'Requests Today', type: 'number', width: 130 },
-                            { field: 'signedUpWith', headerName: 'Signed Up With', width: 130 },
+                        //    { field: 'requestsToday', headerName: 'Requests Today', type: 'number', width: 130 },
+                        //    { field: 'signedUpWith', headerName: 'Signed Up With', width: 130 },
                             { field: 'testUser', headerName: 'Test User', width: 110, type: 'boolean' },
                             { field: 'lastRequestDate', headerName: 'Last Request', width: 180 },
-                            { field: 'createdAt', headerName: 'Created At', width: 180 },
+                         //   { field: 'createdAt', headerName: 'Created At', width: 180 },
+                            { field: 'emailVerified', headerName: 'Verified', type: 'boolean', width: 100 },
+                            { field: 'provider', headerName: 'Provider', width: 120 },
+                            {
+                                field: 'authCreatedAt',
+                                headerName: 'Auth Created',
+                                width: 180,
+                                type: 'dateTime',
+                            },
+                            {
+                                field: 'lastSignIn',
+                                headerName: 'Last Sign-In',
+                                width: 180,
+                                type: 'dateTime',
+                            },
                             {
                                 field: 'actions',
                                 headerName: 'Actions',
-                                width: 320,
+                                width: 500,
                                 renderCell: (params) => {
                                     const isPremium = params.row.subscriptionType === 'premium';
                                     const isTestUser = params.row.testUser === true;
+                                    const isVerified = params.row.emailVerified === true;
 
                                     return (
-                                        <div style={{ display: 'flex', gap: 8 }}>
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                                             <button
                                                 onClick={() =>
                                                     updateSubscription(params.row.id, isPremium ? 'guest' : 'premium')
@@ -132,11 +189,19 @@ export default function App() {
                                             >
                                                 {isTestUser ? 'Unset Test' : 'Set Test'}
                                             </button>
-                                            <button onClick={() => resetRequests(params.row.id)}>Reset weekly requests</button>
+                                            <button onClick={() => resetRequests(params.row.id)}>
+                                                Reset weekly requests
+                                            </button>
+                                            {!isVerified && (
+                                                <button onClick={() => verifyEmail(params.row.id)}>
+                                                    ✅ Verify
+                                                </button>
+                                            )}
                                         </div>
                                     );
                                 },
-                            },
+                            }
+
                         ]}
                         pageSize={10}
                         rowsPerPageOptions={[10]}
