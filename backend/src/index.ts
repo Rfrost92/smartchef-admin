@@ -112,4 +112,17 @@ app.get('/auth-users', async (req, res) => {
     }
 });
 
+app.get('/feedback', async (req, res) => {
+    console.log('📥 GET /feedback - Fetching user feedback...');
+    try {
+        const snapshot = await db.collection('userFeedback').get();
+        const feedback = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        console.log(`✅ Fetched ${feedback.length} feedback entries`);
+        res.json(feedback);
+    } catch (error) {
+        console.error('❌ Failed to fetch feedback:', error);
+        res.status(500).json({ error: 'Failed to fetch feedback' });
+    }
+});
+
 app.listen(3008, () => console.log('✅ Backend running at http://localhost:3008'));
