@@ -18,7 +18,16 @@ export default function FeedbackPage() {
             try {
                 const res = await fetch("http://localhost:3008/feedback");
                 const data = await res.json();
-                setFeedbackEntries(data);
+
+                console.log("Raw feedback entries:", data);
+                const formatted = data.map((entry: any) => ({
+                    ...entry,
+                    timestamp: entry.timestamp?._seconds
+                        ? new Date(entry.timestamp._seconds * 1000).toLocaleString()
+                        : "N/A"
+                }));
+
+                setFeedbackEntries(formatted);
             } catch (err) {
                 console.error("Failed to fetch feedback:", err);
             } finally {
@@ -28,6 +37,7 @@ export default function FeedbackPage() {
         fetchFeedback();
     }, []);
 
+
     return (
         <div style={{ height: 600, width: "100%" }}>
             {loading ? (
@@ -36,11 +46,13 @@ export default function FeedbackPage() {
                 <DataGrid
                     rows={feedbackEntries}
                     columns={[
-                        { field: "id", headerName: "ID", width: 200 },
+                     //   { field: "id", headerName: "ID", width: 200 },
                         { field: "userEmail", headerName: "Email", width: 250 },
                         { field: "userId", headerName: "User ID", width: 250 },
                         { field: "timestamp", headerName: "Timestamp", width: 200 },
-                        { field: "feedback", headerName: "Feedback", width: 500, flex: 1 },
+                        { field: "feedback", headerName: "Feedback", width: 500, renderCell: (params) => (
+                                <div style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>{params.value}</div>
+                            )},
                     ]}
                     pageSize={10}
                     rowsPerPageOptions={[10]}
