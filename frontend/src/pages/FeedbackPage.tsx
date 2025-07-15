@@ -4,7 +4,7 @@ import { DataGrid } from "@mui/x-data-grid";
 type FeedbackEntry = {
     id: string;
     feedback: string;
-    timestamp: string;
+    timestamp: Date | null;
     userEmail?: string;
     userId?: string;
 };
@@ -20,14 +20,31 @@ export default function FeedbackPage() {
                 const data = await res.json();
 
                 console.log("Raw feedback entries:", data);
-                const formatted = data.map((entry: any) => ({
-                    ...entry,
-                    timestamp: entry.timestamp?._seconds
-                        ? new Date(entry.timestamp._seconds * 1000).toLocaleString()
-                        : "N/A"
-                }));
+                const formatted = data.map((entry: any) => {
+                    let timestamp: Date | null = null;
 
-                setFeedbackEntries(formatted);
+                    if (entry.timestamp?._seconds) {
+                        timestamp = new Date(entry.timestamp._seconds * 1000);
+                    } else if (entry.timestamp?.seconds) {
+                        timestamp = new Date(entry.timestamp.seconds * 1000);
+                    } else if (typeof entry.timestamp === "string") {
+                        const parsed = Date.parse(entry.timestamp);
+                        timestamp = isNaN(parsed) ? null : new Date(parsed);
+                    }
+
+                    return {
+                        ...entry,
+                        timestamp,
+                    };
+                });
+                console.log("Formatted feedback entries:", formatted);
+
+                formatted.sort((a, b) => {
+                    const aTime = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+                    const bTime = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+                    return bTime - aTime;
+                });
+                setFeedbackEntries(formatted.filter(f => f.timestamp !== null));
             } catch (err) {
                 console.error("Failed to fetch feedback:", err);
             } finally {
@@ -49,7 +66,18 @@ export default function FeedbackPage() {
                      //   { field: "id", headerName: "ID", width: 200 },
                         { field: "userEmail", headerName: "Email", width: 250 },
                         { field: "userId", headerName: "User ID", width: 250 },
-                        { field: "timestamp", headerName: "Timestamp", width: 200 },
+                        {
+                            field: "timestamp",
+                            headerName: "Timestamp",
+                            width: 200,
+                            valueGetter: (params) => {
+                                const raw = params;
+                                if (!raw) return "N/A";
+                                const date = new Date(raw);
+                                return isNaN(date.getTime()) ? "Invalid" : date.toLocaleString();
+                            }
+                        },
+
                         { field: "feedback", headerName: "Feedback", width: 500, renderCell: (params) => (
                                 <div style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>{params.value}</div>
                             )},
