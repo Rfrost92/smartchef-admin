@@ -61,6 +61,11 @@ export default function FeedbackPage() {
                 <p>Loading feedback...</p>
             ) : (
                 <DataGrid
+                    initialState={{
+                        sorting: {
+                            sortModel: [{ field: 'timestamp', sort: 'desc' }],
+                        },
+                    }}
                     rows={feedbackEntries}
                     columns={[
                      //   { field: "id", headerName: "ID", width: 200 },

@@ -136,6 +136,11 @@ export default function UsersPage() {
             ) : (
                 <div style={{ height: 600, width: "100%" }}>
                     <DataGrid
+                        initialState={{
+                            sorting: {
+                                sortModel: [{ field: 'authCreatedAt', sort: 'desc' }],
+                            },
+                        }}
                         rows={filteredUsers}
                         columns={[
                             { field: 'email', headerName: 'Email', width: 260 },
