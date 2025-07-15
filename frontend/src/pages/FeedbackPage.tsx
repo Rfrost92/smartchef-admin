@@ -74,7 +74,10 @@ export default function FeedbackPage() {
                                 const raw = params;
                                 if (!raw) return "N/A";
                                 const date = new Date(raw);
-                                return isNaN(date.getTime()) ? "Invalid" : date.toLocaleString();
+                                if (isNaN(date.getTime())) return "Invalid";
+
+                                const pad = (n: number) => n.toString().padStart(2, "0");
+                                return `${date.getFullYear()}.${pad(date.getMonth() + 1)}.${pad(date.getDate())}, ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
                             }
                         },
 
