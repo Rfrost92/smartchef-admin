@@ -23,15 +23,20 @@ type User = {
 const getUserStats = (users: User[]) => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const yesterday = new Date(today);
-    yesterday.setDate(today.getDate() - 1);
+    const dayOffset = (days: number) => new Date(today.getTime() - days * 86400000);
 
-    const startOfWeek = new Date(today);
-    startOfWeek.setDate(today.getDate() - ((today.getDay() + 6) % 7)); // Monday as first day
+    const thisMonday = new Date(today);
+    thisMonday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
 
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const last30Days = new Date(today);
-    last30Days.setDate(today.getDate() - 30);
+    const lastMonday = new Date(thisMonday);
+    lastMonday.setDate(thisMonday.getDate() - 7);
+
+    const lastSunday = new Date(thisMonday);
+    lastSunday.setDate(thisMonday.getDate() - 1);
+
+    const last30Days = dayOffset(30);
+    const previous7DaysStart = dayOffset(14);
+    const previous7DaysEnd = dayOffset(7);
 
     const isSameDay = (d1: Date, d2: Date) =>
         d1.getFullYear() === d2.getFullYear() &&
@@ -41,8 +46,12 @@ const getUserStats = (users: User[]) => {
     const counts = {
         today: { total: 0, premium: 0 },
         yesterday: { total: 0, premium: 0 },
+        twoDaysAgo: { total: 0, premium: 0 },
+        threeDaysAgo: { total: 0, premium: 0 },
         thisWeek: { total: 0, premium: 0 },
-        thisMonth: { total: 0, premium: 0 },
+        lastWeek: { total: 0, premium: 0 },
+        last7: { total: 0, premium: 0 },
+        prev7: { total: 0, premium: 0 },
         last30: { total: 0, premium: 0 },
     };
 
@@ -50,30 +59,18 @@ const getUserStats = (users: User[]) => {
         const created = user.authCreatedAt instanceof Date ? user.authCreatedAt : new Date(user.authCreatedAt);
         const isPremium = user.subscriptionType === 'premium';
 
-        if (isSameDay(created, today)) {
-            counts.today.total++;
-            if (isPremium) counts.today.premium++;
-        }
+        if (isSameDay(created, today)) counts.today.total += 1, isPremium && counts.today.premium++;
+        if (isSameDay(created, dayOffset(1))) counts.yesterday.total += 1, isPremium && counts.yesterday.premium++;
+        if (isSameDay(created, dayOffset(2))) counts.twoDaysAgo.total += 1, isPremium && counts.twoDaysAgo.premium++;
+        if (isSameDay(created, dayOffset(3))) counts.threeDaysAgo.total += 1, isPremium && counts.threeDaysAgo.premium++;
 
-        if (isSameDay(created, yesterday)) {
-            counts.yesterday.total++;
-            if (isPremium) counts.yesterday.premium++;
-        }
+        if (created >= thisMonday) counts.thisWeek.total += 1, isPremium && counts.thisWeek.premium++;
+        if (created >= lastMonday && created < thisMonday) counts.lastWeek.total += 1, isPremium && counts.lastWeek.premium++;
 
-        if (created >= startOfWeek) {
-            counts.thisWeek.total++;
-            if (isPremium) counts.thisWeek.premium++;
-        }
+        if (created >= dayOffset(7)) counts.last7.total += 1, isPremium && counts.last7.premium++;
+        if (created >= previous7DaysStart && created < previous7DaysEnd) counts.prev7.total += 1, isPremium && counts.prev7.premium++;
 
-        if (created >= startOfMonth) {
-            counts.thisMonth.total++;
-            if (isPremium) counts.thisMonth.premium++;
-        }
-
-        if (created >= last30Days) {
-            counts.last30.total++;
-            if (isPremium) counts.last30.premium++;
-        }
+        if (created >= last30Days) counts.last30.total += 1, isPremium && counts.last30.premium++;
     }
 
     return counts;
@@ -82,19 +79,28 @@ const getUserStats = (users: User[]) => {
 const getTotalRequestsStats = (users: User[]) => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const yesterday = new Date(today);
-    yesterday.setDate(today.getDate() - 1);
-    const startOfWeek = new Date(today);
-    startOfWeek.setDate(today.getDate() - ((today.getDay() + 6) % 7));
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const last30Days = new Date(today);
-    last30Days.setDate(today.getDate() - 30);
+    const dayOffset = (days: number) => new Date(today.getTime() - days * 86400000);
+
+    const thisMonday = new Date(today);
+    thisMonday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+    const lastMonday = new Date(thisMonday);
+    lastMonday.setDate(thisMonday.getDate() - 7);
+    const lastSunday = new Date(thisMonday);
+    lastSunday.setDate(thisMonday.getDate() - 1);
+
+    const previous7DaysStart = dayOffset(14);
+    const previous7DaysEnd = dayOffset(7);
+    const last30Days = dayOffset(30);
 
     const buckets = {
         today: 0,
         yesterday: 0,
+        twoDaysAgo: 0,
+        threeDaysAgo: 0,
         thisWeek: 0,
-        thisMonth: 0,
+        lastWeek: 0,
+        last7: 0,
+        prev7: 0,
         last30: 0,
     };
 
@@ -103,14 +109,22 @@ const getTotalRequestsStats = (users: User[]) => {
         const total = user.totalRequests || 0;
 
         if (created >= today) buckets.today += total;
-        if (created >= yesterday && created < today) buckets.yesterday += total;
-        if (created >= startOfWeek) buckets.thisWeek += total;
-        if (created >= startOfMonth) buckets.thisMonth += total;
+        if (created >= dayOffset(1) && created < today) buckets.yesterday += total;
+        if (created >= dayOffset(2) && created < dayOffset(1)) buckets.twoDaysAgo += total;
+        if (created >= dayOffset(3) && created < dayOffset(2)) buckets.threeDaysAgo += total;
+
+        if (created >= thisMonday) buckets.thisWeek += total;
+        if (created >= lastMonday && created < thisMonday) buckets.lastWeek += total;
+
+        if (created >= dayOffset(7)) buckets.last7 += total;
+        if (created >= previous7DaysStart && created < previous7DaysEnd) buckets.prev7 += total;
+
         if (created >= last30Days) buckets.last30 += total;
     }
 
     return buckets;
 };
+
 
 
 export default function UsersPage() {
@@ -257,14 +271,28 @@ export default function UsersPage() {
                         </tr>
                         </thead>
                         <tbody>
-                        {["today", "yesterday", "thisWeek", "thisMonth", "last30"].map((key) => (
+                        {[
+                            "today",
+                            "yesterday",
+                            "twoDaysAgo",
+                            "threeDaysAgo",
+                            "thisWeek",
+                            "lastWeek",
+                            "last7",
+                            "prev7",
+                            "last30"
+                        ].map((key) => (
                             <tr key={key}>
                                 <td style={tdStyle}>
                                     {{
                                         today: "Today",
                                         yesterday: "Yesterday",
+                                        twoDaysAgo: "2 Days Ago",
+                                        threeDaysAgo: "3 Days Ago",
                                         thisWeek: "This Week",
-                                        thisMonth: "This Month",
+                                        lastWeek: "Last Week",
+                                        last7: "Last 7 Days",
+                                        prev7: "Previous 7 Days",
                                         last30: "Last 30 Days"
                                     }[key]}
                                 </td>
