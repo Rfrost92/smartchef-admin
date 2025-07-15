@@ -27,7 +27,7 @@ const getUserStats = (users: User[]) => {
     yesterday.setDate(today.getDate() - 1);
 
     const startOfWeek = new Date(today);
-    startOfWeek.setDate(today.getDate() - today.getDay()); // Sunday as first day
+    startOfWeek.setDate(today.getDate() - ((today.getDay() + 6) % 7)); // Monday as first day
 
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const last30Days = new Date(today);
@@ -79,6 +79,39 @@ const getUserStats = (users: User[]) => {
     return counts;
 };
 
+const getTotalRequestsStats = (users: User[]) => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const last30Days = new Date(today);
+    last30Days.setDate(today.getDate() - 30);
+
+    const buckets = {
+        today: 0,
+        yesterday: 0,
+        thisWeek: 0,
+        thisMonth: 0,
+        last30: 0,
+    };
+
+    for (const user of users) {
+        const created = user.authCreatedAt instanceof Date ? user.authCreatedAt : new Date(user.authCreatedAt);
+        const total = user.totalRequests || 0;
+
+        if (created >= today) buckets.today += total;
+        if (created >= yesterday && created < today) buckets.yesterday += total;
+        if (created >= startOfWeek) buckets.thisWeek += total;
+        if (created >= startOfMonth) buckets.thisMonth += total;
+        if (created >= last30Days) buckets.last30 += total;
+    }
+
+    return buckets;
+};
+
 
 export default function UsersPage() {
     const [users, setUsers] = useState<User[]>([]);
@@ -87,6 +120,8 @@ export default function UsersPage() {
     const [manualUserId, setManualUserId] = useState("");
     const [verifyStatus, setVerifyStatus] = useState<string | null>(null);
     const [stats, setStats] = useState<any>(null);
+    const [requestsStats, setRequestsStats] = useState<any>(null);
+
 
     const fetchUsers = async () => {
         setLoading(true);
@@ -114,6 +149,8 @@ export default function UsersPage() {
 
             setUsers(merged);
             setStats(getUserStats(merged));
+            setStats(getUserStats(merged));
+            setRequestsStats(getTotalRequestsStats(merged));
         } catch (err) {
             console.error("Failed to fetch users", err);
         } finally {
@@ -183,19 +220,63 @@ export default function UsersPage() {
             user.requestsToday?.toString().includes(query)
         );
     });
+    const thStyle = {
+        borderBottom: "2px solid #ccc",
+        textAlign: "center" as const,
+        padding: "4px 10px",
+        backgroundColor: "#f4f4f4",
+        whiteSpace: "nowrap"
+    };
+
+    const tdStyle = {
+        borderBottom: "1px solid #eee",
+        textAlign: "center" as const,
+        padding: "4px 10px",
+        whiteSpace: "nowrap"
+    };
+
+
 
     return (
         <div style={{ padding: 24 }}>
-            {stats && (
-                <div style={{ marginBottom: 16, lineHeight: "1.5em" }}>
-                    <strong>New users:</strong>
-                    <strong>Today:</strong> {stats.today.total} (Premium: {stats.today.premium})<br />
-                    <strong>Yesterday:</strong> {stats.yesterday.total} (Premium: {stats.yesterday.premium})<br />
-                    <strong>This week:</strong> {stats.thisWeek.total} (Premium: {stats.thisWeek.premium})<br />
-                    <strong>This month:</strong> {stats.thisMonth.total} (Premium: {stats.thisMonth.premium})<br />
-                    <strong>Last 30 days:</strong> {stats.last30.total} (Premium: {stats.last30.premium})
+            {stats && requestsStats && (
+                <div style={{ marginBottom: 24 }}>
+                    <table style={{
+                        borderCollapse: "collapse",
+                        fontSize: 14,
+                        marginBottom: 24,
+                        width: "fit-content",
+                        maxWidth: "100%"
+                    }}>
+
+                        <thead>
+                        <tr>
+                            <th style={thStyle}>Period</th>
+                            <th style={thStyle}>New Users (Premium)</th>
+                            <th style={thStyle}>Total Requests</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {["today", "yesterday", "thisWeek", "thisMonth", "last30"].map((key) => (
+                            <tr key={key}>
+                                <td style={tdStyle}>
+                                    {{
+                                        today: "Today",
+                                        yesterday: "Yesterday",
+                                        thisWeek: "This Week",
+                                        thisMonth: "This Month",
+                                        last30: "Last 30 Days"
+                                    }[key]}
+                                </td>
+                                <td style={tdStyle}>{stats[key].total} ({stats[key].premium})</td>
+                                <td style={tdStyle}>{requestsStats[key]}</td>
+                            </tr>
+                        ))}
+                        </tbody>
+                    </table>
                 </div>
             )}
+
             <input
                 type="text"
                 placeholder="Search by any field..."
