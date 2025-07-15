@@ -43,6 +43,12 @@ const getUserStats = (users: User[]) => {
         d1.getMonth() === d2.getMonth() &&
         d1.getDate() === d2.getDate();
 
+    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const startOfLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+    const endOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+    const prev30DaysStart = dayOffset(60);
+    const prev30DaysEnd = dayOffset(30);
+
     const counts = {
         today: { total: 0, premium: 0 },
         yesterday: { total: 0, premium: 0 },
@@ -52,7 +58,10 @@ const getUserStats = (users: User[]) => {
         lastWeek: { total: 0, premium: 0 },
         last7: { total: 0, premium: 0 },
         prev7: { total: 0, premium: 0 },
+        thisMonth: { total: 0, premium: 0 },
+        lastMonth: { total: 0, premium: 0 },
         last30: { total: 0, premium: 0 },
+        prev30: { total: 0, premium: 0 },
     };
 
     for (const user of users) {
@@ -71,6 +80,12 @@ const getUserStats = (users: User[]) => {
         if (created >= previous7DaysStart && created < previous7DaysEnd) counts.prev7.total += 1, isPremium && counts.prev7.premium++;
 
         if (created >= last30Days) counts.last30.total += 1, isPremium && counts.last30.premium++;
+        if (created >= startOfMonth) counts.thisMonth.total++, isPremium && counts.thisMonth.premium++;
+        if (created >= startOfLastMonth && created <= endOfLastMonth)
+            counts.lastMonth.total++, isPremium && counts.lastMonth.premium++;
+
+        if (created >= prev30DaysStart && created < prev30DaysEnd)
+            counts.prev30.total++, isPremium && counts.prev30.premium++;
     }
 
     return counts;
@@ -92,6 +107,12 @@ const getTotalRequestsStats = (users: User[]) => {
     const previous7DaysEnd = dayOffset(7);
     const last30Days = dayOffset(30);
 
+    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const startOfLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+    const endOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+    const prev30DaysStart = dayOffset(60);
+    const prev30DaysEnd = dayOffset(30);
+
     const buckets = {
         today: 0,
         yesterday: 0,
@@ -101,7 +122,10 @@ const getTotalRequestsStats = (users: User[]) => {
         lastWeek: 0,
         last7: 0,
         prev7: 0,
+        thisMonth: 0,
+        lastMonth: 0,
         last30: 0,
+        prev30: 0,
     };
 
     for (const user of users) {
@@ -120,6 +144,10 @@ const getTotalRequestsStats = (users: User[]) => {
         if (created >= previous7DaysStart && created < previous7DaysEnd) buckets.prev7 += total;
 
         if (created >= last30Days) buckets.last30 += total;
+        if (created >= startOfMonth) buckets.thisMonth += total;
+        if (created >= startOfLastMonth && created <= endOfLastMonth) buckets.lastMonth += total;
+        if (created >= prev30DaysStart && created < prev30DaysEnd) buckets.prev30 += total;
+
     }
 
     return buckets;
@@ -280,7 +308,10 @@ export default function UsersPage() {
                             "lastWeek",
                             "last7",
                             "prev7",
-                            "last30"
+                            "thisMonth",
+                            "lastMonth",
+                            "last30",
+                            "prev30"
                         ].map((key) => (
                             <tr key={key}>
                                 <td style={tdStyle}>
@@ -293,7 +324,10 @@ export default function UsersPage() {
                                         lastWeek: "Last Week",
                                         last7: "Last 7 Days",
                                         prev7: "Previous 7 Days",
-                                        last30: "Last 30 Days"
+                                        thisMonth: "This Month",
+                                        lastMonth: "Last Month",
+                                        last30: "Last 30 Days",
+                                        prev30: "Previous 30 Days",
                                     }[key]}
                                 </td>
                                 <td style={tdStyle}>{stats[key].total} ({stats[key].premium})</td>
