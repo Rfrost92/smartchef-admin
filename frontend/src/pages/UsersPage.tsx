@@ -20,12 +20,73 @@ type User = {
     lastSignIn?: Date | string;
 };
 
+const getUserStats = (users: User[]) => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - today.getDay()); // Sunday as first day
+
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const last30Days = new Date(today);
+    last30Days.setDate(today.getDate() - 30);
+
+    const isSameDay = (d1: Date, d2: Date) =>
+        d1.getFullYear() === d2.getFullYear() &&
+        d1.getMonth() === d2.getMonth() &&
+        d1.getDate() === d2.getDate();
+
+    const counts = {
+        today: { total: 0, premium: 0 },
+        yesterday: { total: 0, premium: 0 },
+        thisWeek: { total: 0, premium: 0 },
+        thisMonth: { total: 0, premium: 0 },
+        last30: { total: 0, premium: 0 },
+    };
+
+    for (const user of users) {
+        const created = user.authCreatedAt instanceof Date ? user.authCreatedAt : new Date(user.authCreatedAt);
+        const isPremium = user.subscriptionType === 'premium';
+
+        if (isSameDay(created, today)) {
+            counts.today.total++;
+            if (isPremium) counts.today.premium++;
+        }
+
+        if (isSameDay(created, yesterday)) {
+            counts.yesterday.total++;
+            if (isPremium) counts.yesterday.premium++;
+        }
+
+        if (created >= startOfWeek) {
+            counts.thisWeek.total++;
+            if (isPremium) counts.thisWeek.premium++;
+        }
+
+        if (created >= startOfMonth) {
+            counts.thisMonth.total++;
+            if (isPremium) counts.thisMonth.premium++;
+        }
+
+        if (created >= last30Days) {
+            counts.last30.total++;
+            if (isPremium) counts.last30.premium++;
+        }
+    }
+
+    return counts;
+};
+
+
 export default function UsersPage() {
     const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
     const [manualUserId, setManualUserId] = useState("");
     const [verifyStatus, setVerifyStatus] = useState<string | null>(null);
+    const [stats, setStats] = useState<any>(null);
 
     const fetchUsers = async () => {
         setLoading(true);
@@ -52,6 +113,7 @@ export default function UsersPage() {
             });
 
             setUsers(merged);
+            setStats(getUserStats(merged));
         } catch (err) {
             console.error("Failed to fetch users", err);
         } finally {
@@ -124,6 +186,16 @@ export default function UsersPage() {
 
     return (
         <div style={{ padding: 24 }}>
+            {stats && (
+                <div style={{ marginBottom: 16, lineHeight: "1.5em" }}>
+                    <strong>New users:</strong>
+                    <strong>Today:</strong> {stats.today.total} (Premium: {stats.today.premium})<br />
+                    <strong>Yesterday:</strong> {stats.yesterday.total} (Premium: {stats.yesterday.premium})<br />
+                    <strong>This week:</strong> {stats.thisWeek.total} (Premium: {stats.thisWeek.premium})<br />
+                    <strong>This month:</strong> {stats.thisMonth.total} (Premium: {stats.thisMonth.premium})<br />
+                    <strong>Last 30 days:</strong> {stats.last30.total} (Premium: {stats.last30.premium})
+                </div>
+            )}
             <input
                 type="text"
                 placeholder="Search by any field..."
